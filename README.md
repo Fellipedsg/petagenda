@@ -1,32 +1,27 @@
-# React + TypeScript + Vite
+# PetAgenda
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Agendamento de banho e tosa. O tutor escolhe dia e horário; o petshop e o tutor recebem aviso por WhatsApp (Twilio).
 
-Currently, two official plugins are available:
+- **Front** (`src/`): React + Vite, publicado no GitHub Pages a cada push na `main`.
+- **Backend** (`worker/`): Cloudflare Worker + KV. Rotas `GET /api/slots?date=`, `POST /api/book`, e um cron de hora em hora que manda o lembrete de 24h.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Publicar o backend
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd worker
+npx wrangler login
+npx wrangler deploy                       # cria o KV sozinho e imprime a URL do Worker
+npx wrangler secret put TWILIO_ACCOUNT_SID
+npx wrangler secret put TWILIO_AUTH_TOKEN
+npx wrangler secret put TWILIO_WHATSAPP_FROM   # ex.: whatsapp:+14155238886 (sandbox)
+npx wrangler secret put PETSHOP_WHATSAPP       # ex.: 11999990000
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Depois, em GitHub → Settings → Secrets and variables → Actions → **Variables**, crie `VITE_API_URL` com a URL do Worker (sem `/` no final) e rode o workflow *Deploy Pages*.
+
+## Desenvolvimento
+
+```bash
+npm run dev                  # front
+cd worker && npm run dev     # Worker local (KV simulado) em :8787
+```
