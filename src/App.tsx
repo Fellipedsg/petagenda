@@ -55,8 +55,8 @@ export default function App() {
   const reminder = (m: Mine) => {
     const at = ms(m) - DAY
     return at <= Date.now()
-      ? { done: true, text: 'Lembrete a caminho do seu WhatsApp (sai na próxima hora cheia)' }
-      : { done: false, text: `Lembrete chega ${new Date(at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} às ${String(new Date(at).getHours()).padStart(2, '0')}h no seu WhatsApp` }
+      ? { done: true, text: 'Faltam menos de 24h: o petshop já foi lembrado' }
+      : { done: false, text: `Lembrete: ${new Date(at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} às ${String(new Date(at).getHours()).padStart(2, '0')}h, o petshop é lembrado` }
   }
 
   return (
@@ -66,7 +66,7 @@ export default function App() {
           <section className="dark">
             <span className="eyebrow">Banho e tosa</span>
             <h1>Seu pet cheiroso, sem fila.</h1>
-            <p>Escolha o dia e o horário livre. A gente avisa o petshop e te lembra antes.</p>
+            <p>Escolha o dia e o horário livre. O petshop é avisado na hora e se prepara para você.</p>
             <button className="cta" onClick={() => setScreen('agendar')}>Agendar agora</button>
           </section>
           <section className="card">
@@ -114,7 +114,7 @@ export default function App() {
             <h2>Sobre vocês</h2>
             <input required maxLength={80} placeholder="Nome do pet" value={form.pet} onChange={e => setForm({ ...form, pet: e.target.value })} />
             <input required maxLength={80} placeholder="Seu nome" value={form.tutor} onChange={e => setForm({ ...form, tutor: e.target.value })} />
-            <input required type="tel" placeholder="Seu WhatsApp com DDD" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+            <input required type="tel" placeholder="Seu telefone com DDD" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
             <select value={form.service} onChange={e => setForm({ ...form, service: e.target.value })}>
               {SERVICES.map(s => <option key={s}>{s}</option>)}
             </select>
@@ -127,7 +127,7 @@ export default function App() {
       {screen === 'ok' && (
         <section className="dark ok-screen">
           <div className="big">Agendado!</div>
-          <p>Tudo certo. O petshop já foi avisado e você recebe um lembrete 24h antes.</p>
+          <p>Tudo certo. O petshop já foi avisado e vai lembrar do seu horário 24h antes.</p>
           <button className="cta" onClick={() => setScreen('lembretes')}>Ver meus lembretes</button>
           <button className="ghost" style={{ color: '#bba8f7' }} onClick={() => setScreen('inicio')}>Voltar ao início</button>
         </section>
@@ -144,7 +144,7 @@ export default function App() {
                 const r = reminder(m)
                 return (
                   <div key={m.date + m.time} className={`notif ${r.done ? '' : 'later'}`}>
-                    <b>{r.done ? 'WhatsApp · agora' : 'WhatsApp · em breve'}</b>
+                    <b>{r.done ? 'Lembrete · agora' : 'Lembrete · em breve'}</b>
                     <span>⏰ {m.service} do {m.pet} — {long(m.date)} às {m.time}</span>
                     <small className="k" style={{ color: '#bba8f7' }}>{r.text}</small>
                   </div>

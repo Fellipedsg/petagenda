@@ -1,9 +1,9 @@
 # PetAgenda
 
-Agendamento de banho e tosa. O tutor escolhe dia e horário; o petshop e o tutor recebem aviso por WhatsApp (Twilio).
+Agendamento de banho e tosa. O tutor escolhe dia e horário; o petshop recebe aviso no Telegram (novo agendamento e lembrete 24h antes).
 
 - **Front** (`src/`): React + Vite, publicado no GitHub Pages a cada push na `main`.
-- **Backend** (`worker/`): Cloudflare Worker + KV. Rotas `GET /api/slots?date=`, `POST /api/book`, e um cron de hora em hora que manda o lembrete de 24h.
+- **Backend** (`worker/`): Cloudflare Worker + KV. Rotas `GET /api/slots?date=`, `POST /api/book`, e um cron de hora em hora que avisa o petshop 24h antes de cada horário.
 
 ## Publicar o backend
 
@@ -11,10 +11,8 @@ Agendamento de banho e tosa. O tutor escolhe dia e horário; o petshop e o tutor
 cd worker
 npx wrangler login
 npx wrangler deploy                       # cria o KV sozinho e imprime a URL do Worker
-npx wrangler secret put TWILIO_ACCOUNT_SID
-npx wrangler secret put TWILIO_AUTH_TOKEN
-npx wrangler secret put TWILIO_WHATSAPP_FROM   # ex.: whatsapp:+14155238886 (sandbox)
-npx wrangler secret put PETSHOP_WHATSAPP       # ex.: 11999990000
+npx wrangler secret put TELEGRAM_BOT_TOKEN   # token do @BotFather
+npx wrangler secret put TELEGRAM_CHAT_ID     # id do chat do petshop (@userinfobot)
 ```
 
 Depois, em GitHub → Settings → Secrets and variables → Actions → **Variables**, crie `VITE_API_URL` com a URL do Worker (sem `/` no final) e rode o workflow *Deploy Pages*.

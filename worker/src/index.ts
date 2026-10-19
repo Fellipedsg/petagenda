@@ -1,12 +1,8 @@
 type Env = {
   BOOKINGS: KVNamespace
   ALLOWED_ORIGIN: string
-  TWILIO_ACCOUNT_SID?: string
-  TWILIO_AUTH_TOKEN?: string
-  TWILIO_WHATSAPP_FROM?: string
-  PETSHOP_WHATSAPP?: string
-  TWILIO_TPL_BOOKING?: string // ID (HX…) do modelo "novo agendamento"
-  TWILIO_TPL_REMINDER?: string // ID (HX…) do modelo "lembrete"
+  TELEGRAM_BOT_TOKEN?: string
+  TELEGRAM_CHAT_ID?: string
 }
 type Booking = { date: string; time: string; pet: string; tutor: string; phone: string; service: string; reminded?: boolean }
 
@@ -20,31 +16,19 @@ const startMs = (b: Booking) => new Date(`${b.date}T${b.time}:00-03:00`).getTime
 const when = (b: Booking) =>
   `${new Date(b.date + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às ${b.time}`
 
-// Modelo aprovado: se o ID (HX…) estiver configurado, manda como modelo com {{1}}, {{2}}…; senão cai no texto livre.
-type Tpl = { sid?: string; vars: string[] }
-const clean = (s: string) => s.replace(/\s+/g, ' ').trim() // Twilio não aceita quebra de linha em variável
-
-// Envia WhatsApp via Twilio. Nunca lança: falha de envio não pode derrubar o agendamento.
-async function whatsapp(env: Env, to: string | undefined, body: string, tpl?: Tpl) {
-  const { TWILIO_ACCOUNT_SID: sid, TWILIO_AUTH_TOKEN: token, TWILIO_WHATSAPP_FROM: from } = env
-  if (!to || !sid || !token || !from) {
-    const missing = Object.entries({ to, sid, token, from }).filter(([, v]) => !v).map(([k, v]) => `${k}=${v === undefined ? 'indefinido' : 'vazio'}`)
-    console.warn('Twilio não configurado (faltando:', missing.join(', ') + '), mensagem não enviada:', body)
+// Avisa o petshop no Telegram. Nunca lança: falha de envio não pode derrubar o agendamento.
+async function notify(env: Env, text: string) {
+  const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chat } = env
+  if (!token || !chat) {
+    console.warn('Telegram não configurado (faltando:', [!token && 'token', !chat && 'chat'].filter(Boolean).join(', ') + '), aviso não enviado:', text)
     return false
   }
-  const num = to.replace(/\D/g, '')
-  const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+  const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
-    headers: { Authorization: 'Basic ' + btoa(`${sid}:${token}`), 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      From: from,
-      To: `whatsapp:+${num.startsWith('55') ? num : '55' + num}`,
-      ...(tpl?.sid
-        ? { ContentSid: tpl.sid, ContentVariables: JSON.stringify(Object.fromEntries(tpl.vars.map((v, i) => [String(i + 1), clean(v)]))) }
-        : { Body: body }),
-    }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chat, text }),
   })
-  if (!r.ok) console.error('Twilio erro', r.status, await r.text())
+  if (!r.ok) console.error('Telegram erro', r.status, await r.text())
   return r.ok
 }
 
@@ -70,24 +54,22 @@ async function book(env: Env, req: Request) {
   if (await env.BOOKINGS.get(k)) return Response.json({ error: 'horário indisponível' }, { status: 409 })
   await env.BOOKINGS.put(k, JSON.stringify(booking))
 
-  const notified = await whatsapp(
-    env, env.PETSHOP_WHATSAPP,
+  const notified = await notify(
+    env,
     `🐾 Novo agendamento\n${booking.service} — ${booking.pet}\nTutor: ${booking.tutor} (${booking.phone})\n${when(booking)}`,
-    { sid: env.TWILIO_TPL_BOOKING, vars: [booking.service, booking.pet, `${booking.tutor} (${booking.phone})`, when(booking)] },
   )
   return Response.json({ ok: true, notified })
 }
 
-// Lembrete 24h antes para o petshop e para o tutor.
+// Lembrete 24h antes para o petshop.
 async function remind(env: Env) {
   const now = Date.now()
   const { keys } = await env.BOOKINGS.list()
   for (const { name } of keys) {
     const b = await env.BOOKINGS.get<Booking>(name, 'json')
     if (!b || b.reminded || startMs(b) < now || startMs(b) - now > DAY) continue
-    const msg = `⏰ Lembrete: ${b.service} de ${b.pet} — ${when(b)}`
-    const tpl: Tpl = { sid: env.TWILIO_TPL_REMINDER, vars: [b.service, b.pet, when(b), b.tutor] }
-    await Promise.all([whatsapp(env, env.PETSHOP_WHATSAPP, `${msg}\nTutor: ${b.tutor} (${b.phone})`, tpl), whatsapp(env, b.phone, msg, tpl)])
+    // Só marca como lembrado se o envio deu certo; senão tenta de novo na próxima hora.
+    if (!(await notify(env, `⏰ Lembrete: ${b.service} de ${b.pet} — ${when(b)}\nTutor: ${b.tutor} (${b.phone})`))) continue
     // Expira junto com o dia do agendamento para a lista não crescer para sempre.
     await env.BOOKINGS.put(name, JSON.stringify({ ...b, reminded: true }), { expiration: Math.floor(startMs(b) / 1000) + 86400 })
   }
