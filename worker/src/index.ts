@@ -21,7 +21,11 @@ const when = (b: Booking) =>
 // Envia WhatsApp via Twilio. Nunca lança: falha de envio não pode derrubar o agendamento.
 async function whatsapp(env: Env, to: string | undefined, body: string) {
   const { TWILIO_ACCOUNT_SID: sid, TWILIO_AUTH_TOKEN: token, TWILIO_WHATSAPP_FROM: from } = env
-  if (!to || !sid || !token || !from) { console.warn('Twilio não configurado, mensagem não enviada:', body); return false }
+  if (!to || !sid || !token || !from) {
+    const missing = Object.entries({ to, sid, token, from }).filter(([, v]) => !v).map(([k]) => k)
+    console.warn('Twilio não configurado (faltando:', missing.join(', ') + '), mensagem não enviada:', body)
+    return false
+  }
   const num = to.replace(/\D/g, '')
   const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: 'POST',
